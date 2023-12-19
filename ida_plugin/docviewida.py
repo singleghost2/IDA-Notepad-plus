@@ -7,7 +7,7 @@ Updates:
     * Version 1.1   - Fixed issues with opening and closing widget 
 """
 
-import os
+import os, re, sys 
 import ida_kernwin
 import ida_idaapi
 import ida_name
@@ -17,6 +17,7 @@ import idaapi
 from idaapi import PluginForm
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QFont 
+from PyQt5.QtWidgets import QApplication, QTextEdit, QMenu, QFontDialog
 
 # Path to the Markdown docs. Folder should start with 
 IDB_DIR = os.path.dirname(idc.get_idb_path())
@@ -27,6 +28,19 @@ if not os.path.exists(API_MD):
 # global variables used to track initialization/creation of the forms.  
 started = False
 frm = None 
+
+
+
+def clean_filename(filename):
+    # 由于MAC与Linux只限制少量字符, 而Windows限制的字符较多，
+    # 以下为三个系统的非法字符并集
+    invalid_chars = '<>:"/\\|?*'
+    
+    # 为了安全起见, 这里还包括了ASCII控制字符（0-31）
+    control_chars = ''.join(map(chr, range(0, 32)))
+    
+    # 将所有非法字符以及控制字符替换为下划线
+    return re.sub('[{}{}]'.format(re.escape(invalid_chars), re.escape(control_chars)), '_', filename)
 
 def get_selected_name():
     try:
@@ -42,6 +56,45 @@ def get_selected_name():
         return name
     except:
         return None 
+
+
+class CustomTextEdit(QTextEdit):
+    def __init__(self, parent=None):
+        super(CustomTextEdit, self).__init__(parent)
+        
+    def contextMenuEvent(self, event):
+        # 创建标准右键菜单
+        menu = self.createStandardContextMenu()
+
+        # 添加一个分隔符
+        menu.addSeparator()
+        
+        # 添加一个自定义菜单项
+        fontAction = menu.addAction("Font")
+        
+        # 连接信号槽
+        fontAction.triggered.connect(self.changeFont)
+        
+        # 执行菜单
+        menu.exec_(event.globalPos())
+
+    def changeFont(self):
+        # 打开字体对话框
+        font, ok = QFontDialog.getFont(self.font(), self)
+        if ok:
+            # 设置文本框的字体
+            self.setFont(font)
+
+    def insertFromMimeData(self, source):
+        # 只有在MIME数据中有文本时，才执行插入操作
+        if source.hasText():
+            # 获取MIME数据中的纯文本
+            text = source.text()
+            # 插入纯文本
+            self.insertPlainText(text)
+        else:
+            # 对于其他类型的数据，调用基类的默认行为
+            super(CustomTextEdit, self).insertFromMimeData(source)
 
 class DocViewer(PluginForm):
     def OnCreate(self, form):
@@ -59,7 +112,7 @@ class DocViewer(PluginForm):
         font.setBold(True)
         self.markdown_viewer_label.setFont(font)
         
-        self.markdown_viewer = QtWidgets.QTextEdit()
+        self.markdown_viewer = CustomTextEdit()
         self.markdown_viewer.setFontFamily("Courier")
         self.main_layout.addWidget(self.markdown_viewer_label)
         self.main_layout.addWidget(self.markdown_viewer)
@@ -79,7 +132,7 @@ class DocViewer(PluginForm):
             return
         self.markdown_viewer_label.setText(f"`{self.api_name}` 文档")
 
-        self.md_path = os.path.join(API_MD, self.api_name + ".md" )
+        self.md_path = os.path.join(API_MD, clean_filename(self.api_name + ".md"))
         if os.path.isfile(self.md_path):
             with open(self.md_path, "r", encoding="utf-8") as infile:
                 api_markdown = infile.read()
