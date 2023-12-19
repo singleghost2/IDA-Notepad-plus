@@ -7,7 +7,7 @@ Updates:
     * Version 1.1   - Fixed issues with opening and closing widget 
 """
 
-import os, re, sys 
+import os, re, sys, traceback  
 import ida_kernwin
 import ida_idaapi
 import ida_name
@@ -18,6 +18,8 @@ from idaapi import PluginForm
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QFont 
 from PyQt5.QtWidgets import QApplication, QTextEdit, QMenu, QFontDialog
+import sark 
+
 
 # Path to the Markdown docs. Folder should start with 
 IDB_DIR = os.path.dirname(idc.get_idb_path())
@@ -46,15 +48,27 @@ def get_selected_name():
     try:
         v = ida_kernwin.get_current_viewer()
         ret = ida_kernwin.get_highlight(v)
+        name = None
         if ret is None:
-            print("No identifier was highlighted")
-            return None 
-        name, flag = ret 
+            # 判断是不是在伪代码窗口，如果是，返回当前显示的函数名
+            if idaapi.get_widget_type(v) == idaapi.BWN_PSEUDOCODE:
+                vu = idaapi.get_widget_vdui(v)
+                fn = sark.Function(ea=vu.cfunc.entry_ea)
+                name = fn.demangled 
+            else:    
+                print("No identifier was highlighted")
+                return None
+        else: 
+            name, flag = ret 
         t = ida_name.FUNC_IMPORT_PREFIX
         if name.startswith(t):
-            return name[len(t):]
+            name = name[len(t):]
+        name = name.lstrip('_')
+        if '(' in name:
+            name = name[:name.index('(')]
         return name
-    except:
+    except Exception as e:
+        # traceback.print_exc()
         return None 
 
 
