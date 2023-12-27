@@ -13,6 +13,7 @@ import ida_idaapi
 import ida_name
 import idc 
 import idaapi 
+import ida_hexrays
 
 from idaapi import PluginForm
 from PyQt5 import QtWidgets
@@ -44,6 +45,15 @@ def clean_filename(filename):
     # 将所有非法字符以及控制字符替换为下划线
     return re.sub('[{}{}]'.format(re.escape(invalid_chars), re.escape(control_chars)), '_', filename)
 
+def normalize_name(name):
+    t = ida_name.FUNC_IMPORT_PREFIX
+    if name.startswith(t):
+        name = name[len(t):]
+    name = name.lstrip('_')
+    if '(' in name:
+        name = name[:name.index('(')]
+    return name 
+
 def get_selected_name():
     try:
         v = ida_kernwin.get_current_viewer()
@@ -60,37 +70,33 @@ def get_selected_name():
                 return None
         else: 
             name, flag = ret 
-        t = ida_name.FUNC_IMPORT_PREFIX
-        if name.startswith(t):
-            name = name[len(t):]
-        name = name.lstrip('_')
-        if '(' in name:
-            name = name[:name.index('(')]
-        return name
+        
+        return normalize_name(name)
     except Exception as e:
         # traceback.print_exc()
         return None 
 
 
 class CustomTextEdit(QTextEdit):
-    def __init__(self, parent=None):
+    def __init__(self, pluginForm, parent=None):
         super(CustomTextEdit, self).__init__(parent)
-        
-    def contextMenuEvent(self, event):
+        self.pluginForm = pluginForm
         # 创建标准右键菜单
-        menu = self.createStandardContextMenu()
+        self.menu = self.createStandardContextMenu()
 
         # 添加一个分隔符
-        menu.addSeparator()
+        self.menu.addSeparator()
         
         # 添加一个自定义菜单项
-        fontAction = menu.addAction("Font")
+        self.fontAction = self.menu.addAction("Font")
+        self.SyncAction = self.menu.addAction("Sync")
         
         # 连接信号槽
-        fontAction.triggered.connect(self.changeFont)
+        self.fontAction.triggered.connect(self.changeFont)
+        self.SyncAction.triggered.connect(self.changeSync)
         
-        # 执行菜单
-        menu.exec_(event.globalPos())
+    def contextMenuEvent(self, event):
+        self.menu.exec_(event.globalPos())
 
     def changeFont(self):
         # 打开字体对话框
@@ -98,6 +104,13 @@ class CustomTextEdit(QTextEdit):
         if ok:
             # 设置文本框的字体
             self.setFont(font)
+        
+    def changeSync(self):
+        self.pluginForm.sync = not self.pluginForm.sync 
+        if self.pluginForm.sync:
+            self.SyncAction.setText("Sync ✔")
+        else:
+            self.SyncAction.setText("Sync")
 
     def insertFromMimeData(self, source):
         # 只有在MIME数据中有文本时，才执行插入操作
@@ -110,7 +123,22 @@ class CustomTextEdit(QTextEdit):
             # 对于其他类型的数据，调用基类的默认行为
             super(CustomTextEdit, self).insertFromMimeData(source)
 
+
+
 class DocViewer(PluginForm):
+    class HexRaysEventHandler(ida_hexrays.Hexrays_Hooks):
+        def __init__(self, docViewer):
+            super().__init__()
+            self.docViewer = docViewer 
+
+        def switch_pseudocode(self, vdui):
+            func = sark.Function(ea=vdui.cfunc.entry_ea)
+            # print(f"Switched to {func.demangled}")
+            name = normalize_name(func.demangled)
+            self.docViewer.load_markdown(api_name_force = name)
+            return 1 
+        
+
     def OnCreate(self, form):
         """
         defines widget layout 
@@ -126,20 +154,42 @@ class DocViewer(PluginForm):
         font.setBold(True)
         self.markdown_viewer_label.setFont(font)
         
-        self.markdown_viewer = CustomTextEdit()
+        self.markdown_viewer = CustomTextEdit(self)
         self.markdown_viewer.setFontFamily("Courier")
         self.main_layout.addWidget(self.markdown_viewer_label)
         self.main_layout.addWidget(self.markdown_viewer)
         self.parent.setLayout(self.main_layout)
         self.load_markdown()
 
-    def load_markdown(self):
+        self.pseudocodeSwitchEventHandler = self.HexRaysEventHandler(self)
+        self._sync = False 
+
+    @property 
+    def sync(self):
+        return self._sync 
+    
+    @sync.setter 
+    def sync(self, new_value):
+        if new_value:
+            self.pseudocodeSwitchEventHandler.hook()
+            v = ida_kernwin.get_current_viewer()
+            # 判断是不是在伪代码窗口，如果是, 显示当前伪代码窗口中的函数
+            if idaapi.get_widget_type(v) == idaapi.BWN_PSEUDOCODE:
+                vu = idaapi.get_widget_vdui(v)
+                fn = sark.Function(ea=vu.cfunc.entry_ea)
+                name = normalize_name(fn.demangled) 
+                self.load_markdown(api_name_force = name)
+        else:
+            self.pseudocodeSwitchEventHandler.unhook()
+        self._sync = new_value 
+
+    def load_markdown(self, api_name_force = None):
         """
         gets api and load corresponding (if present) api markdown 
         """
         self.save()
 
-        self.api_name = get_selected_name()
+        self.api_name = api_name_force if api_name_force else get_selected_name()
         if not self.api_name:
             api_markdown ="#### Invalid Address Selected"
             self.markdown_viewer.setMarkdown(api_markdown)
@@ -177,6 +227,8 @@ class DocViewer(PluginForm):
         global started
 
         self.save()
+        self.pseudocodeSwitchEventHandler.unhook()
+        # print("PseudocodeEventHandler unhook")
 
         del frm 
         started = False
