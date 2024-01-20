@@ -90,13 +90,39 @@ class CustomTextEdit(QTextEdit):
         # 添加一个自定义菜单项
         self.fontAction = self.menu.addAction("Font")
         self.SyncAction = self.menu.addAction("Sync")
+        self.autoJumpAction = self.menu.addAction("AutoJump")
         
         # 连接信号槽
         self.fontAction.triggered.connect(self.changeFont)
         self.SyncAction.triggered.connect(self.changeSync)
+        self.autoJumpAction.triggered.connect(self.changeAutoJumpSetting)
+
+        self.autoJump = False 
         
     def contextMenuEvent(self, event):
         self.menu.exec_(event.globalPos())
+
+    def mouseReleaseEvent(self, e):
+        super().mouseReleaseEvent(e)
+
+        if self.autoJump:
+            selected_text = self.textCursor().selectedText().strip()
+            if selected_text:
+                # print(f"Selected text: {selected_text}")
+                # 这里可以添加你想执行的代码
+                match_obj = re.match(r'^(0x)?([0-9a-f`]+)$', selected_text, flags=re.IGNORECASE)
+                if match_obj is not None:
+                    addr_str = match_obj.group(2)
+                    addr_str = addr_str.replace('`', '')
+                    # print(f"jumpto addr {hex(int(addr_str, 16))}")
+                    idaapi.jumpto(int(addr_str, 16))
+                else:
+                    try:
+                        line = sark.Line(name=selected_text)
+                        idaapi.jumpto(line.ea)
+                    except:
+                        pass 
+        
 
     def changeFont(self):
         # 打开字体对话框
@@ -111,6 +137,16 @@ class CustomTextEdit(QTextEdit):
             self.SyncAction.setText("Sync ✔")
         else:
             self.SyncAction.setText("Sync")
+
+    def changeAutoJumpSetting(self):
+        if self.pluginForm.sync:
+            self.changeSync()
+
+        self.autoJump = not self.autoJump
+        if self.autoJump:
+            self.autoJumpAction.setText("AutoJump ✔")
+        else:
+            self.autoJumpAction.setText("AutoJump")
 
     def insertFromMimeData(self, source):
         # 只有在MIME数据中有文本时，才执行插入操作
