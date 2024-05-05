@@ -1,12 +1,3 @@
-"""
-Author: Alexander Hanel, dddong 
-Version: 1.1
-Purpose: Document viewer for IDA. 
-Updates:
-    * Version 1.0   - Release
-    * Version 1.1   - Fixed issues with opening and closing widget 
-"""
-
 import os, re, sys, traceback  
 import ida_kernwin
 import ida_idaapi
@@ -35,14 +26,15 @@ frm = None
 
 
 def clean_filename(filename):
-    # 由于MAC与Linux只限制少量字符, 而Windows限制的字符较多，
-    # 以下为三个系统的非法字符并集
+    # Since MAC and Linux only limit a small number of characters, while Windows limits more characters,
+    # The following is the union of illegal characters from the three systems
     invalid_chars = '<>:"/\\|?*'
     
-    # 为了安全起见, 这里还包括了ASCII控制字符（0-31）
+    # For security reasons, ASCII control characters (0-31) are also included here
     control_chars = ''.join(map(chr, range(0, 32)))
     
     # 将所有非法字符以及控制字符替换为下划线
+    # Replace all illegal characters as well as control characters with underscores
     return re.sub('[{}{}]'.format(re.escape(invalid_chars), re.escape(control_chars)), '_', filename)
 
 def normalize_name(name):
@@ -60,7 +52,7 @@ def get_selected_name():
         ret = ida_kernwin.get_highlight(v)
         name = None
         if ret is None:
-            # 判断是不是在伪代码窗口，如果是，返回当前显示的函数名
+            # Determine whether it is in the pseudocode window. If so, return the currently displayed function name.
             if idaapi.get_widget_type(v) == idaapi.BWN_PSEUDOCODE:
                 vu = idaapi.get_widget_vdui(v)
                 fn = sark.Function(ea=vu.cfunc.entry_ea)
@@ -81,18 +73,18 @@ class CustomTextEdit(QTextEdit):
     def __init__(self, pluginForm, parent=None):
         super(CustomTextEdit, self).__init__(parent)
         self.pluginForm = pluginForm
-        # 创建标准右键菜单
+        # Create a standard right-click context menu
         self.menu = self.createStandardContextMenu()
 
-        # 添加一个分隔符
+        # add a separator
         self.menu.addSeparator()
         
-        # 添加一个自定义菜单项
+        # Add custom menu items
         self.fontAction = self.menu.addAction("Font")
         self.SyncAction = self.menu.addAction("Sync")
         self.autoJumpAction = self.menu.addAction("AutoJump")
         
-        # 连接信号槽
+        # Connect signal slots
         self.fontAction.triggered.connect(self.changeFont)
         self.SyncAction.triggered.connect(self.changeSync)
         self.autoJumpAction.triggered.connect(self.changeAutoJumpSetting)
@@ -109,7 +101,6 @@ class CustomTextEdit(QTextEdit):
             selected_text = self.textCursor().selectedText().strip()
             if selected_text:
                 # print(f"Selected text: {selected_text}")
-                # 这里可以添加你想执行的代码
                 match_obj = re.match(r'^(0x)?([0-9a-f`]+)$', selected_text, flags=re.IGNORECASE)
                 if match_obj is not None:
                     addr_str = match_obj.group(2)
@@ -125,10 +116,9 @@ class CustomTextEdit(QTextEdit):
         
 
     def changeFont(self):
-        # 打开字体对话框
+        # Open font dialog
         font, ok = QFontDialog.getFont(self.font(), self)
         if ok:
-            # 设置文本框的字体
             self.setFont(font)
         
     def changeSync(self):
@@ -150,13 +140,14 @@ class CustomTextEdit(QTextEdit):
 
     def insertFromMimeData(self, source):
         # 只有在MIME数据中有文本时，才执行插入操作
+        # Only perform insert operations if there is text in the MIME data
         if source.hasText():
-            # 获取MIME数据中的纯文本
+            # Get plain text from MIME data
             text = source.text()
-            # 插入纯文本
+            # Insert plain text
             self.insertPlainText(text)
         else:
-            # 对于其他类型的数据，调用基类的默认行为
+            # For other types of data, the default behavior of the base class is invoked
             super(CustomTextEdit, self).insertFromMimeData(source)
 
 
@@ -210,6 +201,7 @@ class DocViewer(PluginForm):
             self.pseudocodeSwitchEventHandler.hook()
             v = ida_kernwin.get_current_viewer()
             # 判断是不是在伪代码窗口，如果是, 显示当前伪代码窗口中的函数
+            # Determine whether it is in the pseudocode window. If so, display the function in the current pseudocode window.
             if idaapi.get_widget_type(v) == idaapi.BWN_PSEUDOCODE:
                 vu = idaapi.get_widget_vdui(v)
                 fn = sark.Function(ea=vu.cfunc.entry_ea)
@@ -230,14 +222,14 @@ class DocViewer(PluginForm):
             api_markdown ="#### Invalid Address Selected"
             self.markdown_viewer.setMarkdown(api_markdown)
             return
-        self.markdown_viewer_label.setText(f"`{self.api_name}` 文档")
+        self.markdown_viewer_label.setText(f"`{self.api_name}` doc")
 
         self.md_path = os.path.join(API_MD, clean_filename(self.api_name + ".md"))
         if os.path.isfile(self.md_path):
             with open(self.md_path, "r", encoding="utf-8") as infile:
                 api_markdown = infile.read()
         else:
-            btn_sel = idaapi.ask_yn(idaapi.ASKBTN_NO, f"{self.api_name}.md 没有找到，是否创建新的文件?")
+            btn_sel = idaapi.ask_yn(idaapi.ASKBTN_NO, f"{self.api_name}.md is not found, create new file or not?")
             if btn_sel == idaapi.ASKBTN_CANCEL or btn_sel == idaapi.ASKBTN_NO:
                 api_markdown = "!!!File not found!!!" 
             else:
