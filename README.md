@@ -6,7 +6,9 @@
 或者使用PluginLoader 插件
 
 # TODO
-
+1. 将 sark 依赖去除
+2. 将 Readme 完善
+3. 提交到 github
 
 
 # credits
