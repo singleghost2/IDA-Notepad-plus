@@ -7,6 +7,7 @@
 2. 用户在记事本中所做的更改， 会自动保存写入到磁盘
 3. 开启 sync 选项， 伪代码窗口中函数切换， 记事本窗口也会切换到对应的函数
 4. 开启 autojump 选项， 选中记事本中的地址， 会自动跳转
+5. 提供 AutoCreate 选项，通过此选项配置 在创建笔记之前是否需要用户确认
 
 演示创建新的笔记和开启 sync 选项
 
@@ -21,12 +22,10 @@
 ![这是图片](/assets/autojump.gif "Autojump example")
 
 # 安装
-把 docviewida.py 拷贝到 IDA 的插件目录下
-或者使用PluginLoader 插件， 将 docviewida.py的路径添加到 plugins.list 
+把 ida_notepad_plus.py 拷贝到 IDA 的插件目录下
+或者使用PluginLoader 插件， 将 ida_notepad_plus.py的路径添加到 plugins.list 
 
 # TODO
-1. 将 sark 依赖去除
-2. 将 Readme 完善
 3. 提交到 github
 4. autojump 功能支持更多跳转方式， 例如 module+offset, 函数名
 

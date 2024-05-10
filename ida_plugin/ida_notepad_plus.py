@@ -88,11 +88,15 @@ class CustomTextEdit(QTextEdit):
         self.fontAction = self.menu.addAction("Font")
         self.SyncAction = self.menu.addAction("Sync")
         self.autoJumpAction = self.menu.addAction("AutoJump")
+
+        self.menu.addSeparator()
+        self.autoCreateOption = self.menu.addAction("AutoCreate")
         
         # Connect signal slots
         self.fontAction.triggered.connect(self.changeFont)
         self.SyncAction.triggered.connect(self.changeSync)
         self.autoJumpAction.triggered.connect(self.changeAutoJumpSetting)
+        self.autoCreateOption.triggered.connect(self.changeAutoCreateOption)
 
         self.autoJump = False 
         
@@ -143,6 +147,13 @@ class CustomTextEdit(QTextEdit):
         else:
             self.autoJumpAction.setText("AutoJump")
 
+    def changeAutoCreateOption(self):
+        self.pluginForm.autoCreate = not self.pluginForm.autoCreate 
+        if self.pluginForm.autoCreate:
+            self.autoCreateOption.setText("AutoCreate ✔")
+        else:
+            self.autoCreateOption.setText("AutoCreate")
+
     def insertFromMimeData(self, source):
         # 只有在MIME数据中有文本时，才执行插入操作
         # Only perform insert operations if there is text in the MIME data
@@ -171,6 +182,7 @@ class DocViewer(PluginForm):
         
 
     def OnCreate(self, form):
+        self.autoCreate = False 
         """
         defines widget layout 
         """
@@ -180,7 +192,7 @@ class DocViewer(PluginForm):
         self.parent = self.FormToPyQtWidget(form)
         self.main_layout = QtWidgets.QVBoxLayout()
         self.markdown_viewer_label = QtWidgets.QLabel()
-        self.markdown_viewer_label.setText("API MSDN Docs")
+        self.markdown_viewer_label.setText("IDA Notepad+")
         font = QFont("Microsoft YaHei")
         font.setBold(True)
         self.markdown_viewer_label.setFont(font)
@@ -233,13 +245,18 @@ class DocViewer(PluginForm):
             with open(self.md_path, "r", encoding="utf-8") as infile:
                 api_markdown = infile.read()
         else:
-            btn_sel = idaapi.ask_yn(idaapi.ASKBTN_NO, f"{self.api_name}.md is not found, create new file or not?")
-            if btn_sel == idaapi.ASKBTN_CANCEL or btn_sel == idaapi.ASKBTN_NO:
-                api_markdown = "!!!File not found!!!" 
+            if not self.autoCreate:
+                btn_sel = idaapi.ask_yn(idaapi.ASKBTN_NO, f"{self.api_name}.md is not found, create new file or not?")
+                if btn_sel == idaapi.ASKBTN_CANCEL or btn_sel == idaapi.ASKBTN_NO:
+                    api_markdown = "!!!File not found!!!" 
+                else:
+                    with open(self.md_path, "w", encoding="utf-8") as file:
+                        pass 
+                    api_markdown = "" 
             else:
                 with open(self.md_path, "w", encoding="utf-8") as file:
                     pass 
-                api_markdown = "" 
+                api_markdown = ""    
             
         self.markdown_viewer.setText(api_markdown)
 
