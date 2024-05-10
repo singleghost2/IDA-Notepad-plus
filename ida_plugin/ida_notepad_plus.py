@@ -10,7 +10,6 @@ from idaapi import PluginForm
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QFont 
 from PyQt5.QtWidgets import QApplication, QTextEdit, QMenu, QFontDialog
-import sark 
 
 
 # Path to the Markdown docs. Folder should start with 
@@ -46,6 +45,12 @@ def normalize_name(name):
         name = name[:name.index('(')]
     return name 
 
+def demangle(name, disable_mask=0):
+    demangled_name = idaapi.demangle_name(name, disable_mask, idaapi.DQT_FULL)
+    if demangled_name:
+        return demangled_name
+    return name
+
 def get_selected_name():
     try:
         v = ida_kernwin.get_current_viewer()
@@ -55,8 +60,8 @@ def get_selected_name():
             # Determine whether it is in the pseudocode window. If so, return the currently displayed function name.
             if idaapi.get_widget_type(v) == idaapi.BWN_PSEUDOCODE:
                 vu = idaapi.get_widget_vdui(v)
-                fn = sark.Function(ea=vu.cfunc.entry_ea)
-                name = fn.demangled 
+                name = idaapi.get_ea_name(vu.cfunc.entry_ea)
+                name = demangle(name)
             else:    
                 print("No identifier was highlighted")
                 return None
@@ -109,8 +114,8 @@ class CustomTextEdit(QTextEdit):
                     idaapi.jumpto(int(addr_str, 16))
                 else:
                     try:
-                        line = sark.Line(name=selected_text)
-                        idaapi.jumpto(line.ea)
+                        ea = idc.get_name_ea_simple(selected_text)
+                        idaapi.jumpto(ea)
                     except:
                         pass 
         
@@ -159,9 +164,8 @@ class DocViewer(PluginForm):
             self.docViewer = docViewer 
 
         def switch_pseudocode(self, vdui):
-            func = sark.Function(ea=vdui.cfunc.entry_ea)
-            # print(f"Switched to {func.demangled}")
-            name = normalize_name(func.demangled)
+            name = demangle(idaapi.get_ea_name(vdui.cfunc.entry_ea))
+            name = normalize_name(name)
             self.docViewer.load_markdown(api_name_force = name)
             return 1 
         
@@ -204,8 +208,8 @@ class DocViewer(PluginForm):
             # Determine whether it is in the pseudocode window. If so, display the function in the current pseudocode window.
             if idaapi.get_widget_type(v) == idaapi.BWN_PSEUDOCODE:
                 vu = idaapi.get_widget_vdui(v)
-                fn = sark.Function(ea=vu.cfunc.entry_ea)
-                name = normalize_name(fn.demangled) 
+                name = demangle(idaapi.get_ea_name(vu.cfunc.entry_ea))
+                name = normalize_name(name) 
                 self.load_markdown(api_name_force = name)
         else:
             self.pseudocodeSwitchEventHandler.unhook()
