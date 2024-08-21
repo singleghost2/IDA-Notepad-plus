@@ -16,10 +16,8 @@ from PyQt5.QtWidgets import QApplication, QTextEdit, QMenu, QFontDialog
 IDB_DIR = ""
 API_MD = ""
 IDB_DIR = os.path.dirname(idc.get_idb_path())
-print("IDB_DIR:"+IDB_DIR)
 API_MD = os.path.join(IDB_DIR,idaapi.get_root_filename())
 API_MD = API_MD + "_notes"
-print("API_MD:"+API_MD)
 if not os.path.exists(API_MD):
     os.mkdir(API_MD)
 
