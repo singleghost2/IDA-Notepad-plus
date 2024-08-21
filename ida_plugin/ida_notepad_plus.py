@@ -13,8 +13,13 @@ from PyQt5.QtWidgets import QApplication, QTextEdit, QMenu, QFontDialog
 
 
 # Path to the Markdown docs. Folder should start with 
+IDB_DIR = ""
+API_MD = ""
 IDB_DIR = os.path.dirname(idc.get_idb_path())
-API_MD = os.path.join(IDB_DIR, "Notes-" + idaapi.get_root_filename())
+print("IDB_DIR:"+IDB_DIR)
+API_MD = os.path.join(IDB_DIR,idaapi.get_root_filename())
+API_MD = API_MD + "_notes"
+print("API_MD:"+API_MD)
 if not os.path.exists(API_MD):
     os.mkdir(API_MD)
 
