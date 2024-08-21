@@ -14,9 +14,11 @@ from PyQt5.QtWidgets import QApplication, QTextEdit, QMenu, QFontDialog
 
 # Path to the Markdown docs. Folder should start with 
 IDB_DIR = os.path.dirname(idc.get_idb_path())
-API_MD = os.path.join(IDB_DIR, "Notes-"+str(idaapi.get_root_filename()))
-if not os.path.exists(API_MD):
-    os.mkdir(API_MD)
+#judge the file is open or not
+if IDB_DIR != "":
+    API_MD = os.path.join(IDB_DIR, "Notes-"+str(idaapi.get_root_filename()))
+    if not os.path.exists(API_MD):
+        os.mkdir(API_MD)
 
 # global variables used to track initialization/creation of the forms.  
 started = False
